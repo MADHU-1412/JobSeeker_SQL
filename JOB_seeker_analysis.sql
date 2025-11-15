@@ -579,3 +579,75 @@ SELECT DATE(applied_at) AS dt, COUNT(*) AS applications
 FROM applications
 GROUP BY DATE(applied_at);
 
+--CTE: Applications per Job
+
+WITH job_app_count AS (
+    SELECT 
+        job_id,
+        COUNT(*) AS total_applications
+    FROM applications
+    GROUP BY job_id
+)
+SELECT 
+    j.job_id,
+    j.title,
+    j.category,
+    j.location,
+    total_applications
+FROM job_app_count jc
+JOIN jobs j ON jc.job_id = j.job_id
+ORDER BY total_applications DESC;
+
+
+--Window Function: Rank Jobs by Popularity
+
+SELECT 
+    j.job_id,
+    j.title,
+    COUNT(a.application_id) AS apps,
+    RANK() OVER(ORDER BY COUNT(a.application_id) DESC) AS popularity_rank
+FROM jobs j
+LEFT JOIN applications a ON j.job_id = a.job_id
+GROUP BY j.job_id, j.title;
+
+--Window Function: Candidate Activity Ranking
+
+SELECT 
+    c.candidate_id,
+    c.name,
+    COUNT(a.application_id) AS total_applied,
+    DENSE_RANK() OVER(ORDER BY COUNT(a.application_id) DESC) AS activity_rank
+FROM candidates c
+LEFT JOIN applications a ON c.candidate_id = a.candidate_id
+GROUP BY c.candidate_id, c.name;
+
+
+--KPI: Hire Rate & Shortlist Rate
+
+SELECT 
+    job_id,
+    ROUND(SUM(CASE WHEN status = 'Shortlisted' THEN 1 END) * 100.0 / COUNT(*), 2) AS shortlist_rate,
+    ROUND(SUM(CASE WHEN status = 'Hired' THEN 1 END) * 100.0 / COUNT(*), 2) AS hire_rate
+FROM applications
+GROUP BY job_id;
+
+
+--Time-Series: Applications Per Month
+
+SELECT 
+    DATE_FORMAT(apply_date, '%Y-%m') AS month,
+    COUNT(*) AS applications
+FROM applications
+GROUP BY month
+ORDER BY month;
+
+
+--Experience vs Success Rate
+
+SELECT 
+    c.experience_years,
+    ROUND(SUM(CASE WHEN a.status = 'Hired' THEN 1 END) * 100.0 / COUNT(*), 2) AS hire_rate
+FROM candidates c
+JOIN applications a ON c.candidate_id = a.candidate_id
+GROUP BY c.experience_years
+ORDER BY experience_years;
